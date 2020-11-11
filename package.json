@@ -9,6 +9,10 @@
     "clean": "rimraf dist",
     "test": "npx jest --passWithNoTests"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suiiii-rip/mediaspyy-extension.git"
+  },
   "author": "",
   "license": "MIT",
   "dependencies": {},
