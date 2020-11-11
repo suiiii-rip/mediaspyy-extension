@@ -1,0 +1,18 @@
+{
+  "name": "MediaSpyy",
+  "version": "1.0",
+  "description": "Listens on MediaSession objects and reports changes",
+  "background": {
+    "scripts": ["js/background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["js/contentscript.js"]
+    }
+  ],
+  "manifest_version": 2,
+  "permissions": ["tabs", "activeTab", "webNavigation", "https://*/*", "http://*/*"],
+  "web_accessible_resources": ["js/pageInject.js"]
+}
