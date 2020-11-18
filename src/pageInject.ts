@@ -3,6 +3,7 @@ import {
   MediaData,
   MediaImage,
 } from './types';
+import {s} from './util';
 
 interface ScheduledMediaPolling {
   (mediaPoll: Function,
@@ -44,7 +45,7 @@ const mediaPoll: MediaPoll = () => {
     playbackState: navigator.mediaSession.playbackState
   };
 
-  console.debug(`Sending media data '${JSON.stringify(mediaData)}' to backend`);
+  console.debug(`Sending media data '${s(mediaData)}' to backend`);
 
   document.dispatchEvent(new CustomEvent<MediaData>(MediaDataChangeKey, {
       detail: mediaData
@@ -71,4 +72,4 @@ const scheduleMediaPoll: ScheduledMediaPolling = (mediaPoll: MediaPoll,
   }, scheduleDelay);
 };
 
-scheduleMediaPoll(mediaPoll, scheduleMediaPoll, 5000, 30000);
+scheduleMediaPoll(mediaPoll, scheduleMediaPoll, 5000, 10000);

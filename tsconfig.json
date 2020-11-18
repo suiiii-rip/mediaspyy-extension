@@ -3,6 +3,8 @@
         "lib": ["es6", "dom"],
         "module": "commonjs",
         "target": "es6",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
         "noImplicitAny": false,
         "sourceMap": false,
         "rootDir": "src",
