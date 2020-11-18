@@ -16,7 +16,7 @@ class ArrayMediaStorage implements MediaStorage {
 
     push(mediaData: MediaData): Promise<MediaData> {
         this.arr.push(mediaData);
-        console.debug(`New current stoage: ${s(this.arr)}`);
+        console.debug(`New current storage: ${s(this.arr.map(m => m.title))}`);
         return Promise.resolve(mediaData);
     }
     peek(): Promise<MediaData | null> {
@@ -36,7 +36,6 @@ class MediaHandler {
     }
 
     public async handle(mediaData: MediaData): Promise<void> {
-        // TODO handle multiple tabs playing at the same time
         console.debug(`Message received ${s(mediaData)}`)
 
         const current = await this.storage.peek();

@@ -38,12 +38,14 @@ class ChangeHandler {
 
         const mediaData = e.detail;
 
-        console.debug(`Received message from page: ${s(mediaData)}`);
-        if (this.isPlaying(mediaData) && !this.isEqual(this.current, mediaData)) {
-            console.debug(
-                `Sending new playing media data ${s(mediaData)} to backend`);
-            this.current = mediaData;
-            chrome.runtime.sendMessage(mediaData);
+        console.trace(`Received message from page: ${s(mediaData)}`);
+        if (this.isPlaying(mediaData)) {
+            if (!this.isEqual(this.current, mediaData)) {
+                console.debug(
+                    `Sending new playing media data ${s(mediaData)} to backend`);
+                    this.current = mediaData;
+                    chrome.runtime.sendMessage(mediaData);
+            }
         } else {
             console.debug(`Media not playing, dropping info`);
             // reset current in case we resume playing the same media again way
