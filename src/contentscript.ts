@@ -1,6 +1,8 @@
 import {
     MediaDataChangeKey,
-    MediaData
+    ChangeHandlerChange,
+    MediaData,
+    SpyyMessage
 } from './types';
 import {s} from './util';
 import equal from 'deep-equal';
@@ -44,7 +46,10 @@ class ChangeHandler {
                 console.debug(
                     `Sending new playing media data ${s(mediaData)} to backend`);
                     this.current = mediaData;
-                    chrome.runtime.sendMessage(mediaData);
+                    chrome.runtime.sendMessage({
+                        key: ChangeHandlerChange,
+                        data: mediaData
+                    });
             }
         } else {
             console.debug(`Media not playing, dropping info`);

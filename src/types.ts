@@ -1,5 +1,9 @@
 export const MediaDataChangeKey = "MediaSpyy_MediaDataChangeKey";
 
+// ChangeHandler keys
+export const ChangeHandlerChange = "ChangeHandler_Change"
+export const ChangeHandlerHistory = "ChangeHandler_History"
+
 export interface MediaData {
     readonly url: string;
     readonly title: string;
@@ -15,3 +19,8 @@ export interface MediaImage {
     readonly size?: string;
     readonly type?: string;
 };
+
+export interface SpyyMessage {
+    key: string,
+    data: any
+}

@@ -2,6 +2,10 @@
   "name": "MediaSpyy",
   "version": "1.0",
   "description": "Listens on MediaSession objects and reports changes",
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "MediaSpyy"
+  },
   "background": {
     "scripts": ["js/background.js"],
     "persistent": false

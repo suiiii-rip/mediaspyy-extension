@@ -1,5 +1,8 @@
 import {
-    MediaData
+    MediaData,
+    SpyyMessage,
+    ChangeHandlerChange,
+    ChangeHandlerHistory
 } from './types';
 import { s } from './util'
 import equal from 'deep-equal';
@@ -8,7 +11,10 @@ interface MediaStorage {
 
     push(mediaData: MediaData): Promise<MediaData>
 
+    // TODO remove this?
     peek(): Promise<MediaData | null>
+
+    last(count: number): Promise<Array<MediaData>>
 }
 
 class ArrayMediaStorage implements MediaStorage {
@@ -23,6 +29,12 @@ class ArrayMediaStorage implements MediaStorage {
         const val = this.arr[this.arr.length - 1];
         return Promise.resolve(val ? val : null);
     }
+    last(count: number): Promise<Array<MediaData>> {
+
+        const reversed = this.arr.slice(-Math.abs(count)).reverse();
+
+        return Promise.resolve(reversed);
+    }
 }
 
 
@@ -35,7 +47,7 @@ class MediaHandler {
         this.storage = mediaStorage;
     }
 
-    public async handle(mediaData: MediaData): Promise<void> {
+    public async handleChange(mediaData: MediaData): Promise<void> {
         console.debug(`Message received ${s(mediaData)}`)
 
         const current = await this.storage.peek();
@@ -46,8 +58,26 @@ class MediaHandler {
         }
     }
 
+    public async history(): Promise<Array<MediaData>> {
+        console.debug("Handling history request");
+        const data = await this.storage.last(3);
+
+        console.debug("Returning history data", data);
+        return data;
+    }
 }
 
 const mediaHandler = new MediaHandler(new ArrayMediaStorage());
 
-chrome.runtime.onMessage.addListener(msg => mediaHandler.handle(msg));
+chrome.runtime.onMessage.addListener(async (msg, _, sendResponse) => {
+    const m = <SpyyMessage> msg;
+    const key = m.key;
+
+    if (key === ChangeHandlerChange) {
+        mediaHandler.handleChange(<MediaData> m.data)
+    } else if (key === ChangeHandlerHistory) {
+        const history = await mediaHandler.history();
+
+        sendResponse(history);
+    }
+});
