@@ -6,6 +6,10 @@
     "default_popup": "popup.html",
     "default_title": "MediaSpyy"
   },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "background": {
     "scripts": ["js/background.js"],
     "persistent": false
@@ -17,6 +21,6 @@
     }
   ],
   "manifest_version": 2,
-  "permissions": ["tabs", "activeTab", "webNavigation", "https://*/*", "http://*/*"],
+  "permissions": ["storage", "https://*/*", "http://*/*"],
   "web_accessible_resources": ["js/pageInject.js"]
 }
