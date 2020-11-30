@@ -1,25 +1,46 @@
-console.log("hello options");
+import {
+    SpyyConfig,
+    defaultConfig
+} from "./types";
+
+const getInput = (id: string): HTMLInputElement | null => {
+    return (<HTMLInputElement>document.getElementById(id));
+}
 
 const populate = () => {
 
-    console.debug("populating options page");
-    chrome.storage.local.get({
-        historyEntries: 3
-    }, config => {
-        const historyEntriesInput = (<HTMLInputElement>document.getElementById("history_entries"));
-        historyEntriesInput.value = config.historyEntries;
+    console.debug("populating options page with default", defaultConfig);
+    chrome.storage.local.get(defaultConfig, config => {
+        console.debug("Populating config options with actual", config);
+
+        Object.keys(defaultConfig).forEach(v => {
+            const input = getInput(v);
+            const value = config[v];
+            // handle checkboxes for boolean values
+            if (typeof value === "boolean") {
+                input.checked = value;
+            } else {
+                input.value = config[v];
+            }
+        });
     })
 };
 
 const save = () => {
     console.debug("Saving options");
-    const historyEntriesInput = (<HTMLInputElement>document.getElementById("history_entries"));
 
-    const historyEntries = historyEntriesInput.value;
+    const config = Object.fromEntries(
+        Object.entries(defaultConfig).map(i => {
+            const [k, v] = i;
+            const input = getInput(k);
+            // handle checkboxes for boolean values
+            const value = typeof v === "boolean" ? input.checked : input.value;
+            return [k, value];
+    }));
 
-    chrome.storage.local.set({historyEntries: historyEntries}, () => {
+    chrome.storage.local.set(config, () => {
 
-        console.log("saved options");
+        console.log("saved options", config);
     });
 };
 // TODO does this work embedded?

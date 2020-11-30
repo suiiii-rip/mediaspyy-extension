@@ -11,10 +11,36 @@
     </style>
   </head>
   <body>
-    <label>
-      Number of history entries in popup:
-      <input type="number" id="history_entries"/>
-    </label>
+    <div>
+      <label>
+        Number of history entries in popup:
+        <input type="number" id="historyEntries"/>
+      </label>
+    </div>
+    <div>
+      <label>
+        Use external storage:
+        <input type="checkbox" id="useExternal"/>
+      </label>
+    </div>
+    <div class="external">
+      <label>
+        External server url:
+        <input type="url" id="serverUrl"/>
+      </label>
+    </div>
+    <div class="external">
+      <label>
+        External server user:
+        <input type="text" id="serverUser"/>
+      </label>
+    </div>
+    <div class="external">
+      <label>
+        External server password:
+        <input type="password" id="serverPassword"/>
+      </label>
+    </div>
 
     <button type="button" id="save" >save</button>
     <script src="js/options.js"></script>

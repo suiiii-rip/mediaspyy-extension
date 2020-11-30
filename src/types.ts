@@ -24,3 +24,19 @@ export interface SpyyMessage {
     key: string,
     data: any
 }
+
+export interface SpyyConfig {
+    historyEntries: number,
+    useExternal: boolean,
+    serverUrl: string,
+    serverUser: string,
+    serverPassword: string
+}
+
+export const defaultConfig: SpyyConfig = {
+    historyEntries: 3,
+    useExternal: false,
+    serverUrl: "http://localhost:8080/",
+    serverUser: "foo",
+    serverPassword: "bar"
+}

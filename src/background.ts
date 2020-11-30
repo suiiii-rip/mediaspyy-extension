@@ -1,10 +1,15 @@
 import {
     MediaData,
+    SpyyConfig,
+    defaultConfig,
     SpyyMessage,
     ChangeHandlerChange,
     ChangeHandlerHistory
 } from './types';
-import { s } from './util'
+import {
+    s,
+    Defer
+} from './util'
 import equal from 'deep-equal';
 
 interface MediaStorage {
@@ -34,6 +39,43 @@ class ArrayMediaStorage implements MediaStorage {
         const reversed = this.arr.slice(-Math.abs(count)).reverse();
 
         return Promise.resolve(reversed);
+    }
+}
+
+class ConfigAwareMediaStorageWrapper implements MediaStorage {
+    private readonly interalStorage: MediaStorage;
+    private readonly externalStorage: MediaStorage;
+
+    constructor(interalStorage: MediaStorage,
+               externalStorage: MediaStorage) {
+
+                   this.interalStorage = interalStorage;
+                   this.externalStorage = externalStorage;
+               }
+
+    private async doOnStorage<T>(func: (s: MediaStorage) => Promise<T>): Promise<T> {
+        const defer = Defer.create<MediaStorage>();
+        chrome.storage.local.get(defaultConfig, (config) => {
+            const c = <SpyyConfig> config;
+
+            const storage = c.useExternal ? this.externalStorage : this.interalStorage;
+            // TODO handle error
+            console.debug("Using storage", storage);
+            defer.resolve(storage);
+        });
+
+        const storage = await defer.promise;
+        return func(storage);
+    }
+
+    async push(mediaData: MediaData): Promise<MediaData> {
+        return this.doOnStorage(s => s.push(mediaData));
+    }
+    async peek(): Promise<MediaData> {
+        return this.doOnStorage(s => s.peek());
+    }
+    async last(count: number): Promise<MediaData[]> {
+        return this.doOnStorage(s => s.last(count));
     }
 }
 
@@ -67,17 +109,24 @@ class MediaHandler {
     }
 }
 
-const mediaHandler = new MediaHandler(new ArrayMediaStorage());
+const mediaHandler = new MediaHandler(new ConfigAwareMediaStorageWrapper(
+    new ArrayMediaStorage(),
+    new ArrayMediaStorage()));
 
-chrome.runtime.onMessage.addListener(async (msg, _, sendResponse) => {
+// we are not using an async function here as we need hands-on control of the
+// listener life cycle to control the sendResponse validity
+chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
     const m = <SpyyMessage> msg;
     const key = m.key;
 
     if (key === ChangeHandlerChange) {
         mediaHandler.handleChange(<MediaData> m.data)
+        // close the response as we are not sending a respnse
+        return false;
     } else if (key === ChangeHandlerHistory) {
-        const history = await mediaHandler.history();
-
-        sendResponse(history);
+        mediaHandler.history()
+            .then(v => sendResponse(v));
+        // keep sendResponse open as we are doing a bunch of async stuff
+        return true;
     }
 });
