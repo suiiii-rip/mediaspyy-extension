@@ -22,6 +22,8 @@ interface MediaStorage {
     last(count: number): Promise<Array<MediaData>>
 }
 
+// Storing data in memory is for debugging purposes only as extension
+// background script gets unloaded rather quickly
 class ArrayMediaStorage implements MediaStorage {
     private arr: Array<MediaData> = new Array();
 
@@ -39,6 +41,62 @@ class ArrayMediaStorage implements MediaStorage {
         const reversed = this.arr.slice(-Math.abs(count)).reverse();
 
         return Promise.resolve(reversed);
+    }
+}
+
+interface LocalHistory {
+    localMediaHistory: Array<MediaData>;
+}
+
+class LocalStorageMediaStorage implements MediaStorage {
+
+    private readonly maxSize: number = 100;
+
+    private localStorage: chrome.storage.LocalStorageArea = chrome.storage.local;
+
+    private getLocalHistory(cb: (h: LocalHistory) => void): void {
+        this.localStorage.get(<LocalHistory>{localMediaHistory: []}, cb);
+    }
+
+    async push(mediaData: MediaData): Promise<MediaData> {
+
+        const defer = Defer.create<MediaData>();
+        this.getLocalHistory(h => {
+            console.debug("retrieved media history from local storage", h);
+
+            const history = h.localMediaHistory.slice(- (this.maxSize - 1));
+            history.push(mediaData);
+
+            this.localStorage.set(<LocalHistory>{localMediaHistory: history}, () => {
+
+                console.debug("Added new entry to local history", mediaData,
+                              history);
+                defer.resolve(mediaData);
+            });
+        });
+        return defer.promise;
+    }
+    async peek(): Promise<MediaData> {
+        const defer = Defer.create<MediaData>();
+        this.getLocalHistory(h => {
+
+            const history = h.localMediaHistory;
+            const val = history[history.length - 1];
+            console.debug("peeked last history entry", val);
+            defer.resolve(val ? val : null);
+        });
+        return defer.promise;
+    }
+    async last(count: number): Promise<MediaData[]> {
+        const defer = Defer.create<Array<MediaData>>();
+
+        this.getLocalHistory(h => {
+            const reversed = h.localMediaHistory.slice(-Math.abs(count)).reverse();
+            console.debug("retrieved last history entries", reversed);
+            defer.resolve(reversed);
+        });
+
+        return defer.promise;
     }
 }
 
@@ -102,6 +160,7 @@ class MediaHandler {
 
     public async history(): Promise<Array<MediaData>> {
         console.debug("Handling history request");
+        // TODO access config to get current value
         const data = await this.storage.last(3);
 
         console.debug("Returning history data", data);
@@ -110,7 +169,7 @@ class MediaHandler {
 }
 
 const mediaHandler = new MediaHandler(new ConfigAwareMediaStorageWrapper(
-    new ArrayMediaStorage(),
+    new LocalStorageMediaStorage(),
     new ArrayMediaStorage()));
 
 // we are not using an async function here as we need hands-on control of the
