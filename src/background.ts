@@ -1,11 +1,13 @@
 import {
     MediaData,
     SpyyConfig,
-    defaultConfig,
     SpyyMessage,
     ChangeHandlerChange,
     ChangeHandlerHistory
 } from './types';
+import {
+    configService
+} from './config';
 import {
     s,
     Defer
@@ -112,17 +114,11 @@ class ConfigAwareMediaStorageWrapper implements MediaStorage {
                }
 
     private async doOnStorage<T>(func: (s: MediaStorage) => Promise<T>): Promise<T> {
-        const defer = Defer.create<MediaStorage>();
-        chrome.storage.local.get(defaultConfig, (config) => {
-            const c = <SpyyConfig> config;
+        const c = await configService.get();
 
-            const storage = c.useExternal ? this.externalStorage : this.interalStorage;
-            // TODO handle error
-            console.debug("Using storage", storage);
-            defer.resolve(storage);
-        });
+        const storage = c.useExternal ? this.externalStorage : this.interalStorage;
+        console.debug("Using storage", storage);
 
-        const storage = await defer.promise;
         return func(storage);
     }
 
@@ -160,8 +156,8 @@ class MediaHandler {
 
     public async history(): Promise<Array<MediaData>> {
         console.debug("Handling history request");
-        // TODO access config to get current value
-        const data = await this.storage.last(3);
+        const config = await configService.get();
+        const data = await this.storage.last(config.historyEntries);
 
         console.debug("Returning history data", data);
         return data;

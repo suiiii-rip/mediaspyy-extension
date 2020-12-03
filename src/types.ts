@@ -5,6 +5,10 @@ export const ChangeHandlerChange = "ChangeHandler_Change"
 export const ChangeHandlerHistory = "ChangeHandler_History"
 
 export interface MediaData {
+    // TODO extract URL as it is not provided by the MediaSession API. So this
+    // does change while playing a song and navigating the site causing
+    // 'duplicates'. Idea: search for song on different platforms and provide
+    // links to yt, spotify, etc.
     readonly url: string;
     readonly title: string;
     readonly artist: string;

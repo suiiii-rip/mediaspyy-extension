@@ -1,33 +1,36 @@
 import {
-    SpyyConfig,
-    defaultConfig
+    SpyyConfig
 } from "./types";
+import {
+    ConfigService,
+    configService
+} from "./config";
 
 const getInput = (id: string): HTMLInputElement | null => {
     return (<HTMLInputElement>document.getElementById(id));
 }
 
-const populate = () => {
+const populate = async () => {
 
-    console.debug("populating options page with default", defaultConfig);
-    chrome.storage.local.get(defaultConfig, config => {
-        console.debug("Populating config options with actual", config);
+    const config = await configService.get();
+    console.debug("populating options page with provided", config);
 
-        Object.keys(defaultConfig).forEach(v => {
-            const input = getInput(v);
-            const value = config[v];
-            // handle checkboxes for boolean values
-            if (typeof value === "boolean") {
-                input.checked = value;
-            } else {
-                input.value = config[v];
-            }
-        });
-    })
+    Object.keys(config).forEach(v => {
+        const input = getInput(v);
+        const value = config[v];
+        // handle checkboxes for boolean values
+        if (typeof value === "boolean") {
+            input.checked = value;
+        } else {
+            input.value = config[v];
+        }
+    });
 };
 
-const save = () => {
+const save = async () => {
     console.debug("Saving options");
+
+    const defaultConfig = await configService.get();
 
     const config = Object.fromEntries(
         Object.entries(defaultConfig).map(i => {
@@ -38,10 +41,9 @@ const save = () => {
             return [k, value];
     }));
 
-    chrome.storage.local.set(config, () => {
+    const savedConfig = await configService.set(config as unknown as SpyyConfig);
 
-        console.log("saved options", config);
-    });
+    console.debug("saved options", savedConfig);
 };
 // TODO does this work embedded?
 window.onload = () => {
