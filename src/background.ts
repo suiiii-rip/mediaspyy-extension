@@ -3,7 +3,9 @@ import {
     SpyyConfig,
     SpyyMessage,
     ChangeHandlerChange,
-    ChangeHandlerHistory
+    ChangeHandlerHistory,
+    ChangeHandlerHistoryResponse,
+    ChangeHandlerHistoryError
 } from './types';
 import {
     configService
@@ -22,6 +24,81 @@ interface MediaStorage {
     peek(): Promise<MediaData | null>
 
     last(count: number): Promise<Array<MediaData>>
+}
+
+class ExternalMediaStorage implements MediaStorage {
+
+    // example http://localhost:8080/media?size=10
+    static endpoint: string = "media";
+    static countParam: string = "size";
+
+    async push(mediaData: MediaData): Promise<MediaData> {
+        const config = await configService.get();
+        const baseUrlString = config.serverUrl;
+        const user = config.serverUser;
+        const password = config.serverPassword;
+
+        const url = new URL(ExternalMediaStorage.endpoint,
+                            baseUrlString).toString();
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: new Headers({
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + btoa(`${user}:${password}`)
+                }),
+                body: JSON.stringify(mediaData)
+            });
+
+            if (!response.ok) {
+                console.error(`Response was not ok (${response.status}) from ${url.toString()}`, response);
+                return Promise.reject(new Error(`Received code ${response.status} from ${url.toString()}`));
+            }
+            return mediaData;
+        } catch (error) {
+            console.error(`Failed to update history on ${url.toString()}`, error);
+            return Promise.reject(error);
+        }
+    }
+
+    async peek(): Promise<MediaData | null> {
+        const history = await this.last(1);
+        const val = history[0];
+        return Promise.resolve(val ? val : null);
+    }
+
+    async last(count: number): Promise<MediaData[]> {
+        const config = await configService.get();
+        const baseUrlString = config.serverUrl;
+        const user = config.serverUser;
+        const password = config.serverPassword;
+
+        const params = new URLSearchParams();
+        params.append(ExternalMediaStorage.countParam, `${count}`);
+
+        const url = new URL(ExternalMediaStorage.endpoint, baseUrlString);
+        url.search = params.toString();
+
+        try {
+            console.debug('Requesting history data from', url);
+            const response = await fetch(url.toString(), {
+                headers: new Headers({
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + btoa(`${user}:${password}`)
+                })
+            });
+
+            if (!response.ok) {
+                console.error(`Response was not ok (${response.status}) from ${url.toString()}`, response);
+                return Promise.reject(new Error(`Received error on loading history from ${url.toString()}`));
+            }
+            return response.json();
+        } catch (error) {
+            console.error(`Failed to load history from ${url.toString()}`, error);
+            return Promise.reject(error);
+        }
+    }
 }
 
 // Storing data in memory is for debugging purposes only as extension
@@ -72,7 +149,7 @@ class LocalStorageMediaStorage implements MediaStorage {
             this.localStorage.set(<LocalHistory>{localMediaHistory: history}, () => {
 
                 console.debug("Added new entry to local history", mediaData,
-                              history);
+                    history);
                 defer.resolve(mediaData);
             });
         });
@@ -107,11 +184,11 @@ class ConfigAwareMediaStorageWrapper implements MediaStorage {
     private readonly externalStorage: MediaStorage;
 
     constructor(interalStorage: MediaStorage,
-               externalStorage: MediaStorage) {
+        externalStorage: MediaStorage) {
 
-                   this.interalStorage = interalStorage;
-                   this.externalStorage = externalStorage;
-               }
+        this.interalStorage = interalStorage;
+        this.externalStorage = externalStorage;
+    }
 
     private async doOnStorage<T>(func: (s: MediaStorage) => Promise<T>): Promise<T> {
         const c = await configService.get();
@@ -149,8 +226,12 @@ class MediaHandler {
         const current = await this.storage.peek();
 
         if (!equal(current, mediaData)) {
-            await this.storage.push(mediaData);
-            console.debug(`Adding new media data ${s(mediaData)} to storage`);
+            try {
+                await this.storage.push(mediaData);
+                console.debug(`Adding new media data ${s(mediaData)} to storage`);
+            } catch (err) {
+                console.error(`Failed to store new mediaData`, mediaData, err);
+            }
         }
     }
 
@@ -166,21 +247,30 @@ class MediaHandler {
 
 const mediaHandler = new MediaHandler(new ConfigAwareMediaStorageWrapper(
     new LocalStorageMediaStorage(),
-    new ArrayMediaStorage()));
+    new ExternalMediaStorage()));
 
 // we are not using an async function here as we need hands-on control of the
 // listener life cycle to control the sendResponse validity
 chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
-    const m = <SpyyMessage> msg;
+    const m = <SpyyMessage>msg;
     const key = m.key;
 
     if (key === ChangeHandlerChange) {
-        mediaHandler.handleChange(<MediaData> m.data)
+        mediaHandler.handleChange(<MediaData>m.data)
         // close the response as we are not sending a respnse
         return false;
     } else if (key === ChangeHandlerHistory) {
         mediaHandler.history()
-            .then(v => sendResponse(v));
+            .then(v => sendResponse(<SpyyMessage>{
+                key: ChangeHandlerHistoryResponse,
+                data: v
+            }))
+            .catch(err => {
+                console.error('handling error response from looking up history', err);
+                sendResponse(<SpyyMessage>{
+                    key: ChangeHandlerHistoryError
+                });
+            });
         // keep sendResponse open as we are doing a bunch of async stuff
         return true;
     }

@@ -3,6 +3,8 @@ export const MediaDataChangeKey = "MediaSpyy_MediaDataChangeKey";
 // ChangeHandler keys
 export const ChangeHandlerChange = "ChangeHandler_Change"
 export const ChangeHandlerHistory = "ChangeHandler_History"
+export const ChangeHandlerHistoryResponse = "ChangeHandler_History_Response"
+export const ChangeHandlerHistoryError = "ChangeHandler_History_Error"
 
 export interface MediaData {
     // TODO extract URL as it is not provided by the MediaSession API. So this
@@ -26,7 +28,7 @@ export interface MediaImage {
 
 export interface SpyyMessage {
     key: string,
-    data: any
+    data?: any
 }
 
 export interface SpyyConfig {
