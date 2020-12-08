@@ -1,0 +1,61 @@
+{
+  "port": 8080,
+  "protocol": "http",
+  "stubs": [
+    {
+      "responses": [
+        {
+          "is": {
+            "statusCode": 201
+          }
+        }
+      ],
+      "predicates": [
+        {
+          "equals": {
+            "method": "POST",
+            "path": "/media",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Basic dGVzdDp0ZXN0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "responses": [
+        {
+          "is": {
+            "statusCode": 200,
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "body": "[{\"url\":\"https://music.youtube.com/watch?v=_8Em605BQz4&list=PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph\",\"title\":\"Alibi\",\"artist\":\"NoCopyrightSounds\",\"album\":\"\",\"images\":[{\"src\":\"https://i.ytimg.com/vi/_8Em605BQz4/sddefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCghqEJQEGHgg6AJIWg&rs=AMzJL3m4im8i1R1CcKZPvVvElnnnrSI7SQ\",\"size\":\"320x180\",\"type\":\"\"}],\"playbackState\":\"playing\"}]"
+          }
+        }
+      ],
+      "predicates": [
+        {
+          "equals": {
+            "method": "GET",
+            "path": "/media",
+            "headers": {
+              "Content-Type": "application/json",
+              "Authorization": "Basic dGVzdDp0ZXN0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "responses": [
+        {
+          "is": {
+            "statusCode": 404
+          }
+        }
+      ]
+    }
+  ]
+}

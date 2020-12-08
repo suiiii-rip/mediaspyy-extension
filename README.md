@@ -25,6 +25,23 @@ npm run watch
 
 Load the `dist` folder as an unpacked extension.
 
+## Testing with Mountebank
+
+[Mountebank](http://www.mbtest.org/) can be used for local development and
+testing without the need to have the backend server running.
+
+You can start mountebank via docker and configure it by loading a http imposter
+using the REST api:
+
+```bash
+docker run -p 2525:2525 -p 8080:8080  andyrbell/mountebank
+curl -v -X POST -H "Content-Type: application/json" \
+  -d @mountebank/imposter.json http://localhost:2525/imposters
+```
+
+A mocked backend is then available on `localhost:8080` with user `test` and
+password `test`.
+
 ## Credits
 
 Thanks to
