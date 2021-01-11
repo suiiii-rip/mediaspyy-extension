@@ -2,6 +2,7 @@ import {
   MediaDataChangeKey,
   MediaData,
   MediaImage,
+  GenericLocation,
 } from './types';
 import {s} from './util';
 
@@ -37,7 +38,7 @@ const mediaPoll: MediaPoll = () => {
   });
 
   const mediaData: MediaData = {
-    url: currentUrl,
+    locations: [{ type: GenericLocation, url: currentUrl }],
     title: metadata.title,
     artist: metadata.artist,
     album: metadata.album,

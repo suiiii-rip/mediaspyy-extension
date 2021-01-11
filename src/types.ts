@@ -6,18 +6,21 @@ export const ChangeHandlerHistory = "ChangeHandler_History"
 export const ChangeHandlerHistoryResponse = "ChangeHandler_History_Response"
 export const ChangeHandlerHistoryError = "ChangeHandler_History_Error"
 
+export const GenericLocation = 'generic';
+
 export interface MediaData {
-    // TODO extract URL as it is not provided by the MediaSession API. So this
-    // does change while playing a song and navigating the site causing
-    // 'duplicates'. Idea: search for song on different platforms and provide
-    // links to yt, spotify, etc.
-    readonly url: string;
+    readonly locations: Array<MediaLocation>
     readonly title: string;
     readonly artist: string;
     readonly images: Array<MediaImage>;
     readonly playbackState: "none" | "paused" | "playing";
     readonly album?: string;
 };
+
+export interface MediaLocation {
+    readonly type: string;
+    readonly url: string;
+}
 
 
 export interface MediaImage {

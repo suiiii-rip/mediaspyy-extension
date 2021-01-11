@@ -31,7 +31,7 @@
             "headers": {
               "Content-Type": "application/json"
             },
-            "body": "[{\"url\":\"https://music.youtube.com/watch?v=_8Em605BQz4&list=PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph\",\"title\":\"Alibi\",\"artist\":\"NoCopyrightSounds\",\"album\":\"\",\"images\":[{\"src\":\"https://i.ytimg.com/vi/_8Em605BQz4/sddefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCghqEJQEGHgg6AJIWg&rs=AMzJL3m4im8i1R1CcKZPvVvElnnnrSI7SQ\",\"size\":\"320x180\",\"type\":\"\"}],\"playbackState\":\"playing\"}]"
+            "body": "[{\"locations\":[{\"type\":\"generic\",\"url\":\"https://music.youtube.com/watch?v=_8Em605BQz4&list=PLRBp0Fe2GpgnIh0AiYKh7o7HnYAej-5ph\"}],\"title\":\"Alibi\",\"artist\":\"NoCopyrightSounds\",\"album\":\"\",\"images\":[{\"src\":\"https://i.ytimg.com/vi/_8Em605BQz4/sddefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCghqEJQEGHgg6AJIWg&rs=AMzJL3m4im8i1R1CcKZPvVvElnnnrSI7SQ\",\"size\":\"320x180\",\"type\":\"\"}],\"playbackState\":\"playing\"}]"
           }
         }
       ],
