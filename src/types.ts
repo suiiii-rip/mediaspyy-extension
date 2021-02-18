@@ -40,6 +40,10 @@ export interface SpyyConfig {
     serverUrl: string,
     serverUser: string,
     serverPassword: string
+    queryOnlineStatus: boolean,
+    twitchUser: string,
+    twitchClientId: string,
+    twitchClientSecret: string
 }
 
 export const defaultConfig: SpyyConfig = {
@@ -47,5 +51,9 @@ export const defaultConfig: SpyyConfig = {
     useExternal: false,
     serverUrl: "http://localhost:8080/",
     serverUser: "foo",
-    serverPassword: "bar"
+    serverPassword: "bar",
+    queryOnlineStatus: false,
+    twitchUser: "anon",
+    twitchClientId: "",
+    twitchClientSecret: ""
 }

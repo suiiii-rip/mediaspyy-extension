@@ -47,3 +47,12 @@ password `test`.
 Thanks to
 [chibat](https://github.com/chibat/chrome-extension-typescript-starter) for
 providing a starter project.
+
+
+# TODO
+
+- Only send media info to backend if user stream is online
+    Optional setting, if creds available
+    Twitch API Stream endpoint: https://api.twitch.tv/helix/streams
+    Authenticate with twitch: implicit flow or app token
+- use browser sync to sync options across multiple instances

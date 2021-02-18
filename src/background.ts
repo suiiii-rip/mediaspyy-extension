@@ -26,6 +26,148 @@ interface MediaStorage {
     last(count: number): Promise<Array<MediaData>>
 }
 
+interface ActiveCheck {
+
+    isActive(): Promise<boolean>
+}
+
+class TwitchActiveCheck implements ActiveCheck {
+
+    private accessToken: string;
+    private credsChecksum = "";
+    // auth with id and secret to get app access token
+    // check online status of user from stream api
+    async isActive(): Promise<boolean> {
+        const conf = await configService.get();
+
+        const username = conf.twitchUser;
+        const clientId = conf.twitchClientId;
+        const clientSecret = conf.twitchClientSecret;
+
+        console.debug(`Querying user ${username} online status`);
+
+        const checksum = clientId + clientSecret;
+        if (checksum !== this.credsChecksum) {
+            this.credsChecksum = checksum;
+            this.accessToken = "";
+        }
+
+        const doCheck: (token: string) => Promise<[string, boolean]> = 
+            async (token) => {
+
+            const query = async (t: string) => this.queryStreamState(t, clientId, username);
+            const authAndQuery: () => Promise<[string, boolean]> = async () => {
+                const newToken = await this.authenticate(clientId, clientSecret);
+                const active = await query(newToken);
+                return [newToken, active];
+            }
+
+            if (!token) {
+                return authAndQuery();
+            }
+
+            try {
+                const active = await query(token);
+                return [token, active];
+            } catch (error) {
+                // TODO check forbidden error
+                // TODO retry in case of other failure?
+                return authAndQuery();
+            }
+        }
+
+        const [newToken, result] = await doCheck(this.accessToken);
+
+        this.accessToken = newToken;
+        return result;
+    }
+
+    private async authenticate(clientId: string, clientSecret: string): Promise<string> {
+        console.debug(`Authenticating with clientId ${clientId}`);
+        const url = new URL("https://id.twitch.tv/oauth2/token");
+        const params = url.searchParams;
+        params.append("client_id", clientId);
+        params.append("client_secret", clientSecret);
+        params.append("grant_type", "client_credentials");
+
+        const response = await fetch(url.toString(), {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            console.debug(`Received access token for clientId ${clientId}`);
+            const res = await response.json();
+            return res.access_token;
+        }
+
+        console.error(`Failed to authenticate with clientId ${clientId}`);
+        throw new AuthenticationError("Authentication request returned a not ok answer");
+    }
+
+    private async queryStreamState(token: string, clientId: string, username: string): Promise<boolean> {
+        console.debug(`Querying user ${username} with clientId ${clientId}`);
+        // TODO query stream endpoint
+        const url = new URL("https://api.twitch.tv/helix/streams");
+        const params = url.searchParams;
+        params.append("user_login", username);
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: new Headers({
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Client-Id': clientId
+            })
+        });
+
+        if (response.ok) {
+            const res = await response.json();
+            console.debug(`Received stream data for user ${username}: ${JSON.stringify(res)}`);
+            const live = res?.data?.[0]?.live;
+            return "live" === live;
+
+        }
+        console.error(`Failed to receive stream data for user ${username}: ${response.statusText}`)
+        throw new TwitchQueryError("Query to twitch api failed with not ok");
+    }
+}
+
+class AuthenticationError extends Error { }
+class TwitchQueryError extends Error {}
+
+class ActiveMediaStorageWrapper implements MediaStorage {
+
+    private delegate: MediaStorage;
+    private activeCheck: ActiveCheck;
+
+    constructor(delegate: MediaStorage, activeCheck: ActiveCheck) {
+        this.delegate = delegate;
+        this.activeCheck = activeCheck;
+    }
+
+    private async checked<T>(func: () => Promise<T>, defaultVal: () => T): Promise<T> {
+        const conf = await configService.get()
+
+        if (conf.queryOnlineStatus && await this.activeCheck.isActive()) {
+            return func();
+        }
+        return defaultVal();
+    }
+
+    async push(mediaData: MediaData): Promise<MediaData> {
+
+        return this.checked(() => this.delegate.push(mediaData), () => mediaData);
+    }
+
+    peek(): Promise<MediaData | null> {
+        return this.checked(() => this.delegate.peek(), () => null);
+    }
+    last(count: number): Promise<MediaData[]> {
+        return this.checked(() => this.delegate.last(count), () => new Array<MediaData>());
+    }
+
+}
+
 class ExternalMediaStorage implements MediaStorage {
 
     // example http://localhost:8080/media?size=10
@@ -247,7 +389,7 @@ class MediaHandler {
 
 const mediaHandler = new MediaHandler(new ConfigAwareMediaStorageWrapper(
     new LocalStorageMediaStorage(),
-    new ExternalMediaStorage()));
+    new ActiveMediaStorageWrapper(new ExternalMediaStorage(), new TwitchActiveCheck())));
 
 // we are not using an async function here as we need hands-on control of the
 // listener life cycle to control the sendResponse validity
