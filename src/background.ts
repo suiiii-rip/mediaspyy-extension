@@ -52,29 +52,29 @@ class TwitchActiveCheck implements ActiveCheck {
             this.accessToken = "";
         }
 
-        const doCheck: (token: string) => Promise<[string, boolean]> = 
+        const doCheck: (token: string) => Promise<[string, boolean]> =
             async (token) => {
 
-            const query = async (t: string) => this.queryStreamState(t, clientId, username);
-            const authAndQuery: () => Promise<[string, boolean]> = async () => {
-                const newToken = await this.authenticate(clientId, clientSecret);
-                const active = await query(newToken);
-                return [newToken, active];
-            }
+                const query = async (t: string) => this.queryStreamState(t, clientId, username);
+                const authAndQuery: () => Promise<[string, boolean]> = async () => {
+                    const newToken = await this.authenticate(clientId, clientSecret);
+                    const active = await query(newToken);
+                    return [newToken, active];
+                }
 
-            if (!token) {
-                return authAndQuery();
-            }
+                if (!token) {
+                    return authAndQuery();
+                }
 
-            try {
-                const active = await query(token);
-                return [token, active];
-            } catch (error) {
-                // TODO check forbidden error
-                // TODO retry in case of other failure?
-                return authAndQuery();
+                try {
+                    const active = await query(token);
+                    return [token, active];
+                } catch (error) {
+                    // TODO check forbidden error
+                    // TODO retry in case of other failure?
+                    return authAndQuery();
+                }
             }
-        }
 
         const [newToken, result] = await doCheck(this.accessToken);
 
@@ -106,7 +106,7 @@ class TwitchActiveCheck implements ActiveCheck {
 
     private async queryStreamState(token: string, clientId: string, username: string): Promise<boolean> {
         console.debug(`Querying user ${username} with clientId ${clientId}`);
-        // TODO query stream endpoint
+
         const url = new URL("https://api.twitch.tv/helix/streams");
         const params = url.searchParams;
         params.append("user_login", username);
@@ -123,18 +123,20 @@ class TwitchActiveCheck implements ActiveCheck {
         if (response.ok) {
             const res = await response.json();
             console.debug(`Received stream data for user ${username}: ${JSON.stringify(res)}`);
-            const live = res?.data?.[0]?.live;
+            const live = res?.data?.[0]?.type;
+            console.debug(`Received live status: ${live}`);
             return "live" === live;
 
         }
-        console.error(`Failed to receive stream data for user ${username}: ${response.statusText}`)
+        console.error(`Failed to receive stream data for user ${username}: ${response.statusText}`);
         throw new TwitchQueryError("Query to twitch api failed with not ok");
     }
 }
 
-class AuthenticationError extends Error { }
+class AuthenticationError extends Error {}
 class TwitchQueryError extends Error {}
 
+// prevents adding new data to storage in case user is offline
 class ActiveMediaStorageWrapper implements MediaStorage {
 
     private delegate: MediaStorage;
@@ -148,9 +150,17 @@ class ActiveMediaStorageWrapper implements MediaStorage {
     private async checked<T>(func: () => Promise<T>, defaultVal: () => T): Promise<T> {
         const conf = await configService.get()
 
-        if (conf.queryOnlineStatus && await this.activeCheck.isActive()) {
+        if (!conf.queryOnlineStatus) {
+            console.debug(`Active check is disabled, passing through`);
             return func();
         }
+
+        if (conf.queryOnlineStatus && await this.activeCheck.isActive()) {
+            console.debug(`Active check is enabled and user is active, passing through`);
+            return func();
+        }
+
+        console.debug(`Did not pass active check, using provided default value`);
         return defaultVal();
     }
 
@@ -160,10 +170,10 @@ class ActiveMediaStorageWrapper implements MediaStorage {
     }
 
     peek(): Promise<MediaData | null> {
-        return this.checked(() => this.delegate.peek(), () => null);
+        return this.delegate.peek();
     }
     last(count: number): Promise<MediaData[]> {
-        return this.checked(() => this.delegate.last(count), () => new Array<MediaData>());
+        return this.delegate.last(count);
     }
 
 }
@@ -181,7 +191,7 @@ class ExternalMediaStorage implements MediaStorage {
         const password = config.serverPassword;
 
         const url = new URL(ExternalMediaStorage.endpoint,
-                            baseUrlString).toString();
+            baseUrlString).toString();
 
         try {
             const response = await fetch(url, {
