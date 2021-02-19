@@ -12,7 +12,7 @@ function handleHistory(media: Array<MediaData>) {
     console.debug("Handling history resonse", media);
     const history = document.getElementById("media_history");
 
-    media.forEach(m => {
+    media.reverse().forEach(m => {
         const li = document.createElement("li");
         li.innerText = `${m.artist} - ${m.title}`;
 
