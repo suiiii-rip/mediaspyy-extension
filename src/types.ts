@@ -2,6 +2,7 @@ export const MediaDataChangeKey = "MediaSpyy_MediaDataChangeKey";
 
 // ChangeHandler keys
 export const ChangeHandlerChange = "ChangeHandler_Change"
+export const ChangeHandlerDeleteItem = "ChangeHandler_DeleteItem"
 export const ChangeHandlerHistory = "ChangeHandler_History"
 export const ChangeHandlerHistoryResponse = "ChangeHandler_History_Response"
 export const ChangeHandlerHistoryError = "ChangeHandler_History_Error"
@@ -9,6 +10,7 @@ export const ChangeHandlerHistoryError = "ChangeHandler_History_Error"
 export const GenericLocation = 'generic';
 
 export interface MediaData {
+    readonly id?: number
     readonly locations: Array<MediaLocation>
     readonly title: string;
     readonly artist: string;

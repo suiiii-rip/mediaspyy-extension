@@ -3,6 +3,7 @@ import {
     SpyyConfig,
     SpyyMessage,
     ChangeHandlerChange,
+    ChangeHandlerDeleteItem,
     ChangeHandlerHistory,
     ChangeHandlerHistoryResponse,
     ChangeHandlerHistoryError
@@ -19,6 +20,8 @@ import equal from 'deep-equal';
 interface MediaStorage {
 
     push(mediaData: MediaData): Promise<MediaData>
+
+    delete(mediaData: MediaData): Promise<void>
 
     // TODO remove this?
     peek(): Promise<MediaData | null>
@@ -147,6 +150,10 @@ class ActiveMediaStorageWrapper implements MediaStorage {
         this.activeCheck = activeCheck;
     }
 
+    delete(mediaData: MediaData): Promise<void> {
+        return this.delegate.delete(mediaData);
+    }
+
     private async checked<T>(func: () => Promise<T>, defaultVal: () => T): Promise<T> {
         const conf = await configService.get()
 
@@ -183,23 +190,18 @@ class ExternalMediaStorage implements MediaStorage {
     // example http://localhost:8080/media?size=10
     static endpoint: string = "media";
     static countParam: string = "size";
+    static idParam: string = "id";
 
     async push(mediaData: MediaData): Promise<MediaData> {
-        const config = await configService.get();
-        const baseUrlString = config.serverUrl;
-        const user = config.serverUser;
-        const password = config.serverPassword;
 
-        const url = new URL(ExternalMediaStorage.endpoint,
-            baseUrlString).toString();
+        const url = (baseUrlString: string) => new URL(ExternalMediaStorage.endpoint,
+            baseUrlString);
 
-        try {
-            const response = await fetch(url, {
+        return this.handleRequest(url, async (url, headers) => {
+
+            const response = await fetch(url.toString(), {
                 method: 'POST',
-                headers: new Headers({
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + btoa(`${user}:${password}`)
-                }),
+                headers: headers,
                 body: JSON.stringify(mediaData)
             });
 
@@ -208,10 +210,32 @@ class ExternalMediaStorage implements MediaStorage {
                 return Promise.reject(new Error(`Received code ${response.status} from ${url.toString()}`));
             }
             return mediaData;
-        } catch (error) {
-            console.error(`Failed to update history on ${url.toString()}`, error);
-            return Promise.reject(error);
+        });
+    }
+
+    async delete(mediaData: MediaData): Promise<void> {
+        const params = new URLSearchParams();
+        params.append(ExternalMediaStorage.idParam, `${mediaData.id}`);
+
+        const url = (baseUrlString: string) => {
+            const u = new URL(ExternalMediaStorage.endpoint,
+                baseUrlString);
+            u.search = params.toString();
+            return u;
         }
+
+        return this.handleRequest(url, async (url, headers) => {
+
+            const response = await fetch(url.toString(), {
+                method: 'DELETE',
+                headers: headers,
+            });
+
+            if (!response.ok) {
+                console.error(`Response was not ok (${response.status}) from ${url.toString()}`, response);
+                return Promise.reject(new Error(`Received code ${response.status} from ${url.toString()}`));
+            }
+        });
     }
 
     async peek(): Promise<MediaData | null> {
@@ -221,24 +245,20 @@ class ExternalMediaStorage implements MediaStorage {
     }
 
     async last(count: number): Promise<MediaData[]> {
-        const config = await configService.get();
-        const baseUrlString = config.serverUrl;
-        const user = config.serverUser;
-        const password = config.serverPassword;
-
         const params = new URLSearchParams();
         params.append(ExternalMediaStorage.countParam, `${count}`);
 
-        const url = new URL(ExternalMediaStorage.endpoint, baseUrlString);
-        url.search = params.toString();
+        const url = (baseUrlString: string) => {
+            const u = new URL(ExternalMediaStorage.endpoint, baseUrlString);
+            u.search = params.toString();
+            return u;
+        }
 
-        try {
+        return this.handleRequest(url, async (url, headers) => {
+
             console.debug('Requesting history data from', url);
             const response = await fetch(url.toString(), {
-                headers: new Headers({
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + btoa(`${user}:${password}`)
-                })
+                headers: headers
             });
 
             if (!response.ok) {
@@ -246,8 +266,26 @@ class ExternalMediaStorage implements MediaStorage {
                 return Promise.reject(new Error(`Received error on loading history from ${url.toString()}`));
             }
             return response.json();
+        });
+    }
+
+    private async handleRequest<T>(createUrl: (s: string) => URL, doRequest: (u: URL, h: Headers) => Promise<T>): Promise<T> {
+        const config = await configService.get();
+        const baseUrlString = config.serverUrl;
+        const user = config.serverUser;
+        const password = config.serverPassword;
+
+        const url = createUrl(baseUrlString);
+
+        const headers = new Headers({
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + btoa(`${user}:${password}`)
+        });
+
+        try {
+            return doRequest(url, headers);
         } catch (error) {
-            console.error(`Failed to load history from ${url.toString()}`, error);
+            console.error(`Failed to execute request on ${url.toString()}`, error);
             return Promise.reject(error);
         }
     }
@@ -262,6 +300,10 @@ class ArrayMediaStorage implements MediaStorage {
         this.arr.push(mediaData);
         console.debug(`New current storage: ${s(this.arr.map(m => m.title))}`);
         return Promise.resolve(mediaData);
+    }
+    delete(mediaData: MediaData): Promise<void> {
+        this.arr = this.arr.filter(m => m !== mediaData);
+        return Promise.resolve(null);
     }
     peek(): Promise<MediaData | null> {
         const val = this.arr[this.arr.length - 1];
@@ -280,7 +322,6 @@ interface LocalHistory {
 }
 
 class LocalStorageMediaStorage implements MediaStorage {
-
     private readonly maxSize: number = 100;
 
     private localStorage: chrome.storage.LocalStorageArea = chrome.storage.local;
@@ -307,6 +348,22 @@ class LocalStorageMediaStorage implements MediaStorage {
         });
         return defer.promise;
     }
+    async delete(mediaData: MediaData): Promise<void> {
+        const defer = Defer.create<void>();
+        this.getLocalHistory(h => {
+            console.debug("retrieved media history from local storage", h);
+
+            const history = h.localMediaHistory.filter(m => m !== mediaData);
+
+            this.localStorage.set(<LocalHistory>{localMediaHistory: history}, () => {
+
+                console.debug("Removed item from history", mediaData, history);
+                defer.resolve(null);
+            });
+        });
+        return defer.promise;
+    }
+
     async peek(): Promise<MediaData> {
         const defer = Defer.create<MediaData>();
         this.getLocalHistory(h => {
@@ -354,12 +411,22 @@ class ConfigAwareMediaStorageWrapper implements MediaStorage {
     async push(mediaData: MediaData): Promise<MediaData> {
         return this.doOnStorage(s => s.push(mediaData));
     }
+    async delete(mediaData: MediaData): Promise<void> {
+        return this.doOnStorage(s => s.delete(mediaData));
+    }
     async peek(): Promise<MediaData> {
         return this.doOnStorage(s => s.peek());
     }
     async last(count: number): Promise<MediaData[]> {
         return this.doOnStorage(s => s.last(count));
     }
+}
+
+const mediaEquals = (a: MediaData, b: MediaData): boolean => {
+
+    return a.title === b.title &&
+        a.artist === b.artist &&
+        a.album === b.album;
 }
 
 
@@ -377,7 +444,7 @@ class MediaHandler {
 
         const current = await this.storage.peek();
 
-        if (!equal(current, mediaData)) {
+        if (!current || !mediaEquals(current, mediaData)) {
             try {
                 await this.storage.push(mediaData);
                 console.debug(`Adding new media data ${s(mediaData)} to storage`);
@@ -385,6 +452,14 @@ class MediaHandler {
                 console.error(`Failed to store new mediaData`, mediaData, err);
             }
         }
+    }
+
+    public async deleteItem(mediaData: MediaData): Promise<void> {
+        console.debug("Deleting media", mediaData);
+
+        await this.storage.delete(mediaData);
+
+        console.debug("Deleted media", mediaData);
     }
 
     public async history(): Promise<Array<MediaData>> {
@@ -407,11 +482,7 @@ chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
     const m = <SpyyMessage>msg;
     const key = m.key;
 
-    if (key === ChangeHandlerChange) {
-        mediaHandler.handleChange(<MediaData>m.data)
-        // close the response as we are not sending a respnse
-        return false;
-    } else if (key === ChangeHandlerHistory) {
+    const updateHistory = () =>
         mediaHandler.history()
             .then(v => sendResponse(<SpyyMessage>{
                 key: ChangeHandlerHistoryResponse,
@@ -423,6 +494,19 @@ chrome.runtime.onMessage.addListener((msg, _, sendResponse) => {
                     key: ChangeHandlerHistoryError
                 });
             });
+
+    if (key === ChangeHandlerChange) {
+        mediaHandler.handleChange(<MediaData>m.data);
+        // close the response as we are not sending a respnse
+        return false;
+    } else if (key === ChangeHandlerHistory) {
+        updateHistory();
+        // keep sendResponse open as we are doing a bunch of async stuff
+        return true;
+    } else if (key === ChangeHandlerDeleteItem) {
+        // TODO handle error
+        mediaHandler.deleteItem(<MediaData>m.data)
+            .then(success => updateHistory());
         // keep sendResponse open as we are doing a bunch of async stuff
         return true;
     }
